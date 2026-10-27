@@ -14,6 +14,8 @@ export type GestureId =
   | "peace"
   | "ok"
   | "pointing_up"
+  | "three"
+  | "four"
   | "unknown";
 
 export interface GestureInfo {
@@ -21,18 +23,21 @@ export interface GestureInfo {
   name: string;
   description: string;
   tip: string;
+  count?: number;
 }
 
 export const GESTURES: Record<GestureId, GestureInfo> = {
   open_palm: {
     id: "open_palm",
     name: "Open Palm",
+    count: 5,
     description: "All five fingers extended and spread.",
     tip: "Face your palm to the camera with fingers spread apart.",
   },
   fist: {
     id: "fist",
     name: "Fist",
+    count: 0,
     description: "All fingers curled in, thumb folded.",
     tip: "Close your hand fully; keep the knuckles facing the camera.",
   },
@@ -45,6 +50,7 @@ export const GESTURES: Record<GestureId, GestureInfo> = {
   peace: {
     id: "peace",
     name: "Peace / V Sign",
+    count: 2,
     description: "Index and middle fingers extended, others curled.",
     tip: "Spread the two raised fingers slightly into a clear V.",
   },
@@ -57,8 +63,23 @@ export const GESTURES: Record<GestureId, GestureInfo> = {
   pointing_up: {
     id: "pointing_up",
     name: "Pointing Up",
+    count: 1,
     description: "Only the index finger extended, pointing upward.",
     tip: "Raise your index finger vertically and curl the rest.",
+  },
+  three: {
+    id: "three",
+    name: "Three",
+    count: 3,
+    description: "Index, middle and ring fingers extended.",
+    tip: "Raise three fingers; keep your thumb and little finger folded.",
+  },
+  four: {
+    id: "four",
+    name: "Four",
+    count: 4,
+    description: "Four fingers extended, thumb folded.",
+    tip: "Raise all four fingers and tuck your thumb across your palm.",
   },
   unknown: {
     id: "unknown",
@@ -68,7 +89,7 @@ export const GESTURES: Record<GestureId, GestureInfo> = {
   },
 };
 
-export const SUPPORTED: KnownGesture[] = ["open_palm", "fist", "thumbs_up", "peace", "ok", "pointing_up"];
+export const SUPPORTED: KnownGesture[] = ["open_palm", "fist", "thumbs_up", "peace", "ok", "pointing_up", "three", "four"];
 
 export const HAND_CONNECTIONS: [Idx, Idx][] = [
   [0, 1], [1, 2], [2, 3], [3, 4],
@@ -131,6 +152,8 @@ export function classifyHand(input: Point[], threshold = 0.65): Classification {
     peace: avg(index.ext, middle.ext, ring.curl, pinky.curl, 1 - pinch),
     ok: avg(pinch, middle.ext, ring.ext, pinky.ext),
     pointing_up: avg(index.ext, indexUp, middle.curl, ring.curl, pinky.curl, 1 - thumbUp),
+    three: avg(index.ext, middle.ext, ring.ext, pinky.curl, thumbCurl, 1 - pinch),
+    four: avg(index.ext, middle.ext, ring.ext, pinky.ext, thumbCurl, 1 - pinch),
   };
 
   let best: GestureId = "unknown";
@@ -187,6 +210,8 @@ export function syntheticHand(g: Exclude<GestureId, "unknown">): Point[] {
     peace: { t: "tucked", f: ["ext", "ext", "curl", "curl"] },
     ok: { t: "pinch", f: ["curl", "ext", "ext", "ext"] },
     pointing_up: { t: "tucked", f: ["ext", "curl", "curl", "curl"] },
+    three: { t: "tucked", f: ["ext", "ext", "ext", "curl"] },
+    four: { t: "tucked", f: ["ext", "ext", "ext", "ext"] },
   };
   const c = cfg[g];
   let index = fingerPts(BASE_X.index, c.f[0]);
