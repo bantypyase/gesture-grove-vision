@@ -2,7 +2,7 @@ import { HAND_CONNECTIONS, syntheticHand, type GestureId, type Idx } from "@/lib
 
 /** Small schematic illustration built from the same synthetic pose the classifier is tested on. */
 export function HandGlyph({ gesture, className }: { gesture: Exclude<GestureId, "unknown">; className?: string }) {
-  const pts = syntheticHand(gesture).map((p) => ({ x: (p.x - 0.5) * 100 + 50, y: (p.y - 0.42) * 100 + 50 })) as unknown as Record<Idx, { x: number; y: number }> & { x: number; y: number }[];
+  const pts = syntheticHand(gesture).map((p) => ({ x: (p.x - 0.5) * 170 + 50, y: (p.y - 0.64) * 170 + 50 })) as unknown as Record<Idx, { x: number; y: number }> & { x: number; y: number }[];
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
       {HAND_CONNECTIONS.map(([a, b]) => (

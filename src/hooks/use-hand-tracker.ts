@@ -386,11 +386,11 @@ export function useHandTracker(settings: Settings) {
       const idx = Math.floor(t / 2.6) % SUPPORTED.length;
       const base = syntheticHand(SUPPORTED[idx]!);
       const lm = base.map((p, i) => ({
-        x: 0.5 + (p.x - 0.5) * 0.6 + Math.sin(t * 1.3) * 0.03 + Math.sin(t * 7 + i) * 0.002,
-        y: 0.1 + p.y * 0.85 + Math.cos(t * 1.1) * 0.02,
+        x: 0.5 + (p.x - 0.5) * 1.8 + Math.sin(t * 1.3) * 0.03 + Math.sin(t * 7 + i) * 0.002,
+        y: 0.52 + (p.y - 0.64) * 1.8 + Math.cos(t * 1.1) * 0.02,
       }));
       // canvas is 16:9; compress x so the hand keeps natural proportions
-      const shaped = lm.map((p) => ({ x: 0.5 + (p.x - 0.5) * (9 / 16) * 1.6, y: p.y }));
+      const shaped = lm.map((p) => ({ x: 0.5 + (p.x - 0.5) * (9 / 16), y: p.y }));
       const cl = classifyHand(shaped, settingsRef.current.threshold);
       const hands: HandResult[] = [{ gesture: cl.gesture, score: cl.score }];
       draw([shaped], hands, true);
