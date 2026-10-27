@@ -39,6 +39,7 @@ export interface Snapshot {
   fps: number | null;
   /** Stable gesture after debounce (primary hand). */
   stable: HandResult | null;
+  stableHands: HandResult[];
 }
 
 export interface HistoryEntry {
@@ -47,6 +48,7 @@ export interface HistoryEntry {
   score: number;
   at: Date;
   demo: boolean;
+  handedness?: string;
 }
 
 type Landmarker = {
@@ -96,18 +98,20 @@ export function useHandTracker(settings: Settings) {
   const [error, setError] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
-  const [snapshot, setSnapshot] = useState<Snapshot>({ hands: [], fps: null, stable: null });
+  const [snapshot, setSnapshot] = useState<Snapshot>({ hands: [], fps: null, stable: null, stableHands: [] });
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   // debounce state
-  const candRef = useRef<{ g: GestureId | null; since: number }>({ g: null, since: 0 });
+  const candRef = useRef<{ g: string | null; since: number }>({ g: null, since: 0 });
   const stableRef = useRef<HandResult | null>(null);
-  const lastLoggedRef = useRef<GestureId | null>(null);
+  const stableHandsRef = useRef<HandResult[]>([]);
+  const lastLoggedRef = useRef<string | null>(null);
   const historyId = useRef(0);
 
   const resetDetection = () => {
     candRef.current = { g: null, since: 0 };
     stableRef.current = null;
+    stableHandsRef.current = [];
     lastLoggedRef.current = null;
   };
 
@@ -133,7 +137,7 @@ export function useHandTracker(settings: Settings) {
     stopStream();
     clearCanvas();
     resetDetection();
-    setSnapshot({ hands: [], fps: null, stable: null });
+    setSnapshot({ hands: [], fps: null, stable: null, stableHands: [] });
     setStatus("off");
   }, []);
 
@@ -153,7 +157,8 @@ export function useHandTracker(settings: Settings) {
         ctx.shadowColor = violet;
         ctx.shadowBlur = 6;
         for (const [ai, bi] of HAND_CONNECTIONS) {
-          const a = lm[ai]!, b = lm[bi]!;
+          const a = lm[ai], b = lm[bi];
+          if (!a || !b) continue;
           ctx.beginPath();
           ctx.moveTo(a.x * c.width, a.y * c.height);
           ctx.lineTo(b.x * c.width, b.y * c.height);
@@ -189,25 +194,32 @@ export function useHandTracker(settings: Settings) {
   };
 
   const process = (results: HandResult[], now: number, demo: boolean, fps: number | null) => {
-    const primary = results[0] ?? null;
-    const g = primary?.gesture ?? null;
-    if (g !== candRef.current.g) candRef.current = { g, since: now };
+    const ordered = [...results].sort((a, b) => (a.handedness ?? "").localeCompare(b.handedness ?? ""));
+    const primary = ordered[0] ?? null;
+    const g = ordered.length ? ordered.map(h => `${h.handedness ?? "Hand"}:${h.gesture}`).join("|") : null;
+    if (g !== candRef.current.g) {
+      candRef.current = { g, since: now };
+      stableRef.current = null;
+      stableHandsRef.current = [];
+    }
     if (now - candRef.current.since >= STABLE_MS) {
       stableRef.current = primary;
-      if (g && g !== "unknown" && g !== lastLoggedRef.current) {
+      stableHandsRef.current = ordered;
+      if (g && g !== lastLoggedRef.current) {
         lastLoggedRef.current = g;
-        const entry: HistoryEntry = {
+        const entries: HistoryEntry[] = ordered.filter(h => h.gesture !== "unknown").map(hand => ({
           id: ++historyId.current,
-          gesture: g,
-          score: primary!.score,
+          gesture: hand.gesture,
+          score: hand.score,
           at: new Date(),
           demo,
-        };
-        setHistory((h) => [entry, ...h].slice(0, 50));
+          ...(hand.handedness ? { handedness: hand.handedness } : {}),
+        }));
+        setHistory((h) => [...entries, ...h].slice(0, 50));
       }
       if (!g) lastLoggedRef.current = null;
     }
-    return { hands: results, fps, stable: stableRef.current } satisfies Snapshot;
+    return { hands: ordered, fps, stable: stableRef.current, stableHands: stableHandsRef.current } satisfies Snapshot;
   };
 
   const ensureLandmarker = async (): Promise<Landmarker> => {
@@ -295,7 +307,13 @@ export function useHandTracker(settings: Settings) {
     });
     void refreshDevices();
 
-    const video = videoRef.current!;
+    const video = videoRef.current;
+    if (!video) {
+      stopStream();
+      setStatus("error");
+      setError("Camera preview is unavailable. Please try again.");
+      return;
+    }
     video.srcObject = stream;
     try {
       await video.play();
@@ -384,17 +402,22 @@ export function useHandTracker(settings: Settings) {
       const now = performance.now();
       const t = (now - t0) / 1000;
       const idx = Math.floor(t / 2.6) % SUPPORTED.length;
-      const base = syntheticHand(SUPPORTED[idx]!);
-      const lm = base.map((p, i) => ({
-        x: 0.5 + (p.x - 0.5) * 1.8 + Math.sin(t * 1.3) * 0.03 + Math.sin(t * 7 + i) * 0.002,
-        y: 0.52 + (p.y - 0.64) * 1.8 + Math.cos(t * 1.1) * 0.02,
-      }));
-      // canvas is 16:9; compress x so the hand keeps natural proportions
-      const shaped = lm.map((p) => ({ x: 0.5 + (p.x - 0.5) * (9 / 16), y: p.y }));
-      // Classify before canvas-only aspect correction distorts finger distances.
-      const cl = classifyHand(lm, settingsRef.current.threshold);
-      const hands: HandResult[] = [{ gesture: cl.gesture, score: cl.score }];
-      draw([shaped], hands, true);
+      const poses: Point[][] = [];
+      const hands: HandResult[] = [];
+      for (let h = 0; h < settingsRef.current.numHands; h++) {
+        const gesture = SUPPORTED[(idx + h * 2) % SUPPORTED.length];
+        if (!gesture) continue;
+        const base = syntheticHand(gesture);
+        const center = settingsRef.current.numHands === 2 ? (h === 0 ? 0.28 : 0.76) : 0.5;
+        const scale = settingsRef.current.numHands === 2 ? 1.2 : 1.8;
+        const cl = classifyHand(base, settingsRef.current.threshold);
+        poses.push(base.map(p => ({
+          x: center + (p.x - 0.5) * scale * (9 / 16) * (h === 0 ? 1 : -1) + Math.sin(t * 1.3) * 0.01,
+          y: 0.58 + (p.y - 0.64) * scale + Math.cos(t * 1.1) * 0.01,
+        })));
+        hands.push({ gesture: cl.gesture, score: cl.score, handedness: h === 0 ? "Left" : "Right" });
+      }
+      draw(poses, hands, true);
       const snap = process(hands, now, true, null);
       if (now - lastUi > 100) {
         lastUi = now;

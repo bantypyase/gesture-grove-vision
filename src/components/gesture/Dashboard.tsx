@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { GESTURES, SUPPORTED } from "@/lib/gestures";
+import { combinedFingerCount, GESTURES, SUPPORTED } from "@/lib/gestures";
 import { useHandTracker, type Settings, type TrackerStatus } from "@/hooks/use-hand-tracker";
 import { HandGlyph } from "./HandGlyph";
 
@@ -45,7 +45,7 @@ export function Dashboard() {
     showLandmarks: true,
     showConnections: true,
     mirror: true,
-    numHands: 1,
+    numHands: 2,
   });
   const t = useHandTracker(settings);
   const { status, snapshot } = t;
@@ -54,6 +54,7 @@ export function Dashboard() {
   const isDemo = status === "demo";
   const stable = snapshot.stable;
   const handCount = snapshot.hands.length;
+  const totalCount = combinedFingerCount(snapshot.stableHands);
 
   let gestureLabel = "—";
   let gestureDesc = "Start the camera or try demo mode to begin.";
@@ -62,7 +63,7 @@ export function Dashboard() {
   if (active) {
     if (handCount === 0) {
       gestureLabel = "No hand detected";
-      gestureDesc = "Show one hand clearly inside the frame.";
+      gestureDesc = "Show your hands clearly inside the frame.";
     } else if (stable) {
       gestureLabel = GESTURES[stable.gesture].name;
       gestureDesc = GESTURES[stable.gesture].description;
@@ -70,6 +71,10 @@ export function Dashboard() {
       gestureLabel = "Analyzing…";
       gestureDesc = "Hold the pose steady for a moment.";
     }
+  }
+  if (active && snapshot.stableHands.length === 2) {
+    gestureLabel = snapshot.stableHands.map(h => GESTURES[h.gesture].name).join(" + ");
+    gestureDesc = "Both hands detected";
   }
 
   const st = STATUS[status];
@@ -211,12 +216,22 @@ export function Dashboard() {
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Current gesture</p>
               <p className="mt-1 font-display text-2xl font-semibold text-gradient" aria-live="polite">{gestureLabel}</p>
               <p className="mt-1 text-sm text-muted-foreground">{gestureDesc}</p>
+              {active && snapshot.hands.length > 0 && (
+                <ul aria-label="Detected hands" className="mt-3 divide-y divide-border">
+                  {snapshot.hands.map((hand, i) => (
+                    <li key={hand.handedness ?? i} className="flex items-center justify-between gap-2 py-2 text-sm">
+                      <span className="text-muted-foreground">{hand.handedness ? `${hand.handedness} hand` : `Hand ${i + 1}`}</span>
+                      <span className="text-right">{GESTURES[hand.gesture].name}{GESTURES[hand.gesture].count !== undefined ? ` · ${GESTURES[hand.gesture].count}` : ""}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {isDemo && (
                 <p className="mt-2 text-xs text-violet">Demo data — generated sample poses, not camera input.</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Kpi icon={Hand} label="Finger count" value={active && stable ? String(GESTURES[stable.gesture].count ?? "—") : "—"} hint={isDemo ? "sample pose" : undefined} />
+              <Kpi icon={Hand} label="Total finger count" value={active ? String(totalCount ?? "—") : "—"} hint={isDemo ? "sample poses" : undefined} />
               <Kpi icon={Hand} label="Hands" value={active ? String(handCount) : "—"} />
               <Kpi
                 icon={Gauge}
@@ -249,7 +264,7 @@ export function Dashboard() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {SUPPORTED.map((id) => {
                 const g = GESTURES[id];
-                const live = active && stable?.gesture === id;
+                const live = active && snapshot.stableHands.some(h => h.gesture === id);
                 return (
                   <article key={id} className={cn("panel panel-hover flex gap-4 p-4", live && "panel-active")}>
                     <div className="grid h-20 w-20 shrink-0 place-items-center rounded-xl bg-stage">
@@ -382,6 +397,7 @@ function HistoryPanel({ history, onClear }: { history: ReturnType<typeof useHand
               <span className="flex items-center gap-2">
                 <span className={cn("h-1.5 w-1.5 rounded-full", h.demo ? "bg-violet" : "bg-cyan")} />
                 {GESTURES[h.gesture].name}
+                {h.handedness && <span className="text-xs text-muted-foreground">{h.handedness}</span>}
                 {h.demo && <span className="text-[10px] uppercase text-violet">demo</span>}
               </span>
               <span className="font-mono text-xs text-muted-foreground">

@@ -91,6 +91,18 @@ export const GESTURES: Record<GestureId, GestureInfo> = {
 
 export const SUPPORTED: KnownGesture[] = ["open_palm", "fist", "thumbs_up", "peace", "ok", "pointing_up", "three", "four"];
 
+/** Unknown or non-counting poses must not produce a misleading partial total. */
+export function combinedFingerCount(hands: { gesture: GestureId }[]): number | null {
+  if (!hands.length) return null;
+  let total = 0;
+  for (const hand of hands) {
+    const count = GESTURES[hand.gesture].count;
+    if (count === undefined) return null;
+    total += count;
+  }
+  return total;
+}
+
 export const HAND_CONNECTIONS: [Idx, Idx][] = [
   [0, 1], [1, 2], [2, 3], [3, 4],
   [0, 5], [5, 6], [6, 7], [7, 8],
