@@ -8,3 +8,7 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Project rules
+- Gesture classification is pure geometry in `src/lib/gestures.ts` (tested in `gestures.test.ts`); keep it framework-free so demo mode, illustrations and tests share the same synthetic poses.
+- All camera/MediaPipe lifecycle lives in `src/hooks/use-hand-tracker.ts`; MediaPipe is dynamically imported so SSR never loads it.
