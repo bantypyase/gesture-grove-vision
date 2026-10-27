@@ -14,7 +14,7 @@ describe("gesture classifier", () => {
   for (const [gesture, count] of counting) {
     it(`counts ${count} for ${gesture}, including mirrored and demo poses`, () => {
       const hand = syntheticHand(gesture);
-      const variants = [hand, hand.map(p => ({ x: 1 - p.x, y: p.y })), hand.map(p => ({ x: 0.5 + (p.x - 0.5) * 1.8 * 9 / 16, y: 0.52 + (p.y - 0.64) * 1.8 }))];
+      const variants = [hand, hand.map(p => ({ x: 1 - p.x, y: p.y })), hand.map(p => ({ x: 0.5 + (p.x - 0.5) * 1.8, y: 0.52 + (p.y - 0.64) * 1.8 }))];
       for (const pose of variants) {
         const result = classifyHand(pose, 0.65);
         expect(result.gesture).toBe(gesture);

@@ -391,7 +391,8 @@ export function useHandTracker(settings: Settings) {
       }));
       // canvas is 16:9; compress x so the hand keeps natural proportions
       const shaped = lm.map((p) => ({ x: 0.5 + (p.x - 0.5) * (9 / 16), y: p.y }));
-      const cl = classifyHand(shaped, settingsRef.current.threshold);
+      // Classify before canvas-only aspect correction distorts finger distances.
+      const cl = classifyHand(lm, settingsRef.current.threshold);
       const hands: HandResult[] = [{ gesture: cl.gesture, score: cl.score }];
       draw([shaped], hands, true);
       const snap = process(hands, now, true, null);
