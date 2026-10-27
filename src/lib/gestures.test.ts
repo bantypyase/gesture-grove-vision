@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { classifyHand, GESTURES, SUPPORTED, syntheticHand, type KnownGesture } from "./gestures";
+import { classifyHand, combinedFingerCount, GESTURES, SUPPORTED, syntheticHand, type KnownGesture } from "./gestures";
 
 describe("gesture classifier", () => {
+  it("combines two open palms into a count of ten", () => {
+    expect(combinedFingerCount([{ gesture: "open_palm" }, { gesture: "open_palm" }])).toBe(10);
+  });
+  it("combines different left and right counting poses", () => {
+    expect(combinedFingerCount([{ gesture: "three" }, { gesture: "four" }])).toBe(7);
+  });
+  it("does not show a partial total for an unknown or non-counting hand", () => {
+    expect(combinedFingerCount([{ gesture: "open_palm" }, { gesture: "unknown" }])).toBeNull();
+    expect(combinedFingerCount([{ gesture: "open_palm" }, { gesture: "ok" }])).toBeNull();
+    expect(combinedFingerCount([])).toBeNull();
+  });
   for (const g of SUPPORTED) {
     it(`recognizes ${g}`, () => {
       expect(classifyHand(syntheticHand(g), 0.65).gesture).toBe(g);
