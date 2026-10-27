@@ -215,7 +215,8 @@ export function Dashboard() {
                 <p className="mt-2 text-xs text-violet">Demo data — generated sample poses, not camera input.</p>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Kpi icon={Hand} label="Finger count" value={active && stable ? String(GESTURES[stable.gesture].count ?? "—") : "—"} hint={isDemo ? "sample pose" : undefined} />
               <Kpi icon={Hand} label="Hands" value={active ? String(handCount) : "—"} />
               <Kpi
                 icon={Gauge}
@@ -257,6 +258,7 @@ export function Dashboard() {
                     <div className="min-w-0">
                       <h3 className="flex items-center gap-2 font-display font-semibold">
                         {g.name}
+                        {g.count !== undefined && <Badge variant="outline">{g.count}</Badge>}
                         {live && <Sparkles className="h-4 w-4 text-cyan" aria-label="Currently detected" />}
                       </h3>
                       <p className="text-sm text-muted-foreground">{g.description}</p>

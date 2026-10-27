@@ -12,3 +12,4 @@
 ## Project rules
 - Gesture classification is pure geometry in `src/lib/gestures.ts` (tested in `gestures.test.ts`); keep it framework-free so demo mode, illustrations and tests share the same synthetic poses.
 - All camera/MediaPipe lifecycle lives in `src/hooks/use-hand-tracker.ts`; MediaPipe is dynamically imported so SSR never loads it.
+- Counting values belong to gesture metadata, with distinct poses for three and four and shared existing poses for zero, one, two and five; this avoids competing labels for identical hand shapes.
