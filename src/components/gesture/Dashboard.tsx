@@ -112,7 +112,7 @@ export function Dashboard() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {t.devices.length > 1 && (
-                  <Select value={t.deviceId} onValueChange={t.selectDevice}>
+                  <Select value={t.deviceId ?? ""} onValueChange={t.selectDevice}>
                     <SelectTrigger className="h-9 w-[180px]" aria-label="Select camera">
                       <SelectValue placeholder="Select camera" />
                     </SelectTrigger>
@@ -286,7 +286,7 @@ export function Dashboard() {
                   max={0.95}
                   step={0.05}
                   value={[settings.threshold]}
-                  onValueChange={([v]) => setSettings((s) => ({ ...s, threshold: v }))}
+                  onValueChange={([v]) => setSettings((s) => ({ ...s, threshold: v ?? s.threshold }))}
                 />
                 <p className="text-xs text-muted-foreground">
                   Higher values report fewer, more certain gestures. Lower values react faster but may mislabel.
@@ -327,7 +327,7 @@ export function Dashboard() {
   );
 }
 
-function Kpi({ icon: Icon, label, value, hint }: { icon: typeof Hand; label: string; value: string; hint?: string }) {
+function Kpi({ icon: Icon, label, value, hint }: { icon: typeof Hand; label: string; value: string; hint?: string | undefined }) {
   return (
     <div className="panel p-3">
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">

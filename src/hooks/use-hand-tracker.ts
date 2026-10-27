@@ -31,7 +31,7 @@ export interface Settings {
 export interface HandResult {
   gesture: GestureId;
   score: number;
-  handedness?: string;
+  handedness?: string | undefined;
 }
 
 export interface Snapshot {
@@ -152,10 +152,11 @@ export function useHandTracker(settings: Settings) {
         ctx.lineWidth = Math.max(2, c.width / 320);
         ctx.shadowColor = violet;
         ctx.shadowBlur = 6;
-        for (const [a, b] of HAND_CONNECTIONS) {
+        for (const [ai, bi] of HAND_CONNECTIONS) {
+          const a = lm[ai]!, b = lm[bi]!;
           ctx.beginPath();
-          ctx.moveTo(lm[a].x * c.width, lm[a].y * c.height);
-          ctx.lineTo(lm[b].x * c.width, lm[b].y * c.height);
+          ctx.moveTo(a.x * c.width, a.y * c.height);
+          ctx.lineTo(b.x * c.width, b.y * c.height);
           ctx.stroke();
         }
       }
@@ -383,7 +384,7 @@ export function useHandTracker(settings: Settings) {
       const now = performance.now();
       const t = (now - t0) / 1000;
       const idx = Math.floor(t / 2.6) % SUPPORTED.length;
-      const base = syntheticHand(SUPPORTED[idx]);
+      const base = syntheticHand(SUPPORTED[idx]!);
       const lm = base.map((p, i) => ({
         x: 0.5 + (p.x - 0.5) * 0.6 + Math.sin(t * 1.3) * 0.03 + Math.sin(t * 7 + i) * 0.002,
         y: 0.1 + p.y * 0.85 + Math.cos(t * 1.1) * 0.02,

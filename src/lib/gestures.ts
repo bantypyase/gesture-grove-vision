@@ -3,6 +3,10 @@
 
 export type Point = { x: number; y: number; z?: number };
 
+export type Idx = 0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20;
+export type Hand = Record<Idx, Point>;
+export type KnownGesture = Exclude<GestureId, "unknown">;
+
 export type GestureId =
   | "open_palm"
   | "fist"
@@ -64,9 +68,9 @@ export const GESTURES: Record<GestureId, GestureInfo> = {
   },
 };
 
-export const SUPPORTED: GestureId[] = ["open_palm", "fist", "thumbs_up", "peace", "ok", "pointing_up"];
+export const SUPPORTED: KnownGesture[] = ["open_palm", "fist", "thumbs_up", "peace", "ok", "pointing_up"];
 
-export const HAND_CONNECTIONS: [number, number][] = [
+export const HAND_CONNECTIONS: [Idx, Idx][] = [
   [0, 1], [1, 2], [2, 3], [3, 4],
   [0, 5], [5, 6], [6, 7], [7, 8],
   [5, 9], [9, 10], [10, 11], [11, 12],
@@ -85,12 +89,13 @@ export interface Classification {
 }
 
 /** threshold: minimum match strength for a gesture to be reported (0..1). */
-export function classifyHand(lm: Point[], threshold = 0.65): Classification {
+export function classifyHand(input: Point[], threshold = 0.65): Classification {
+  const lm = input as unknown as Hand;
   const palm = d(lm[0], lm[9]) || 1e-6;
   const wrist = lm[0];
 
   // Finger extension by distance ratios (rotation-invariant).
-  const finger = (pip: number, tip: number) => {
+  const finger = (pip: Idx, tip: Idx) => {
     const r = d(wrist, lm[tip]) / (d(wrist, lm[pip]) || 1e-6);
     return { ext: clamp01((r - 1.0) / 0.35), curl: clamp01((1.15 - r) / 0.3) };
   };
