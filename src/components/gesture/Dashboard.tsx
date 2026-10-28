@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { combinedFingerCount, GESTURES, SUPPORTED } from "@/lib/gestures";
+import { combinedFingerCount, GESTURES, supportedGestures } from "@/lib/gestures";
 import { useHandTracker, type Settings, type TrackerStatus } from "@/hooks/use-hand-tracker";
 import { HandGlyph } from "./HandGlyph";
 
@@ -46,6 +46,7 @@ export function Dashboard() {
     showConnections: true,
     mirror: true,
     numHands: 2,
+    mode: "symbols",
   });
   const t = useHandTracker(settings);
   const { status, snapshot } = t;
@@ -100,6 +101,22 @@ export function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="recognition-mode">Recognize</Label>
+            <Select value={settings.mode} onValueChange={value => {
+              if (value !== "symbols" && value !== "alphabet") return;
+              setSettings(s => ({ ...s, mode: value }));
+            }}>
+              <SelectTrigger id="recognition-mode" className="w-[190px]" aria-label="Recognition mode"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="symbols">Symbols & counting</SelectItem>
+                <SelectItem value="alphabet">ASL letters</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {settings.mode === "alphabet" && <span className="text-sm text-muted-foreground">B · F · I · L · S · V · W · Y</span>}
+        </div>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           {/* Camera panel */}
           <section aria-label="Live camera" className="panel overflow-hidden">
@@ -203,7 +220,7 @@ export function Dashboard() {
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                       {isDemo ? "Demo result" : "Detected"}
                     </p>
-                    <p className="font-display text-xl font-semibold text-gradient">{gestureLabel}</p>
+                    <p className="break-words font-display text-xl font-semibold text-gradient">{gestureLabel}</p>
                   </div>
                 </div>
               )}
@@ -262,7 +279,7 @@ export function Dashboard() {
 
           <TabsContent value="learn" className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {SUPPORTED.map((id) => {
+              {supportedGestures(settings.mode).map((id) => {
                 const g = GESTURES[id];
                 const live = active && snapshot.stableHands.some(h => h.gesture === id);
                 return (
@@ -271,7 +288,7 @@ export function Dashboard() {
                       <HandGlyph gesture={id} className="h-16 w-16" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="flex items-center gap-2 font-display font-semibold">
+                      <h3 className="flex flex-wrap items-center gap-2 font-display font-semibold">
                         {g.name}
                         {g.count !== undefined && <Badge variant="outline">{g.count}</Badge>}
                         {live && <Sparkles className="h-4 w-4 text-cyan" aria-label="Currently detected" />}
@@ -327,6 +344,8 @@ export function Dashboard() {
                 using simple geometry (which fingers are extended or curled). This is an MVP: results can be ambiguous
                 depending on hand orientation, lighting and distance — the OK sign is the least reliable. When no
                 gesture fits well, it reports "Unknown" instead of guessing.
+                ASL mode covers only B, F, I, L, S, V, W and Y using static hand shapes; it is not a full
+                sign-language translator. Motion letters J and Z, words and two-hand heart signs are not supported.
               </AlertDescription>
             </Alert>
             <Alert className="panel">
@@ -393,14 +412,14 @@ function HistoryPanel({ history, onClear }: { history: ReturnType<typeof useHand
       ) : (
         <ol className="overflow-y-auto p-2" aria-label="Recent gestures">
           {history.map((h) => (
-            <li key={h.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm hover:bg-muted/40">
-              <span className="flex items-center gap-2">
+            <li key={h.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/40">
+              <span className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className={cn("h-1.5 w-1.5 rounded-full", h.demo ? "bg-violet" : "bg-cyan")} />
                 {GESTURES[h.gesture].name}
                 {h.handedness && <span className="text-xs text-muted-foreground">{h.handedness}</span>}
                 {h.demo && <span className="text-[10px] uppercase text-violet">demo</span>}
               </span>
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">
                 {h.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
             </li>

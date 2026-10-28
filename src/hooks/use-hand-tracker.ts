@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   classifyHand,
   HAND_CONNECTIONS,
-  SUPPORTED,
+  supportedGestures,
   syntheticHand,
   type GestureId,
   type Point,
+  type RecognitionMode,
 } from "@/lib/gestures";
 
 const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm";
@@ -26,6 +27,7 @@ export interface Settings {
   showConnections: boolean;
   mirror: boolean;
   numHands: 1 | 2;
+  mode: RecognitionMode;
 }
 
 export interface HandResult {
@@ -196,7 +198,7 @@ export function useHandTracker(settings: Settings) {
   const process = (results: HandResult[], now: number, demo: boolean, fps: number | null) => {
     const ordered = [...results].sort((a, b) => (a.handedness ?? "").localeCompare(b.handedness ?? ""));
     const primary = ordered[0] ?? null;
-    const g = ordered.length ? ordered.map(h => `${h.handedness ?? "Hand"}:${h.gesture}`).join("|") : null;
+    const g = ordered.length ? `${settingsRef.current.mode}:` + ordered.map(h => `${h.handedness ?? "Hand"}:${h.gesture}`).join("|") : null;
     if (g !== candRef.current.g) {
       candRef.current = { g, since: now };
       stableRef.current = null;
@@ -361,7 +363,7 @@ export function useHandTracker(settings: Settings) {
           }
           lastFrame = now;
           const hands: HandResult[] = res.landmarks.map((l, i) => {
-            const c = classifyHand(l, settingsRef.current.threshold);
+            const c = classifyHand(l, settingsRef.current.threshold, settingsRef.current.mode);
             return {
               gesture: c.gesture,
               score: c.score,
@@ -401,16 +403,17 @@ export function useHandTracker(settings: Settings) {
       if (runId !== runIdRef.current) return;
       const now = performance.now();
       const t = (now - t0) / 1000;
-      const idx = Math.floor(t / 2.6) % SUPPORTED.length;
+      const supported = supportedGestures(settingsRef.current.mode);
+      const idx = Math.floor(t / 2.6) % supported.length;
       const poses: Point[][] = [];
       const hands: HandResult[] = [];
       for (let h = 0; h < settingsRef.current.numHands; h++) {
-        const gesture = SUPPORTED[(idx + h * 2) % SUPPORTED.length];
+        const gesture = supported[(idx + h * 2) % supported.length];
         if (!gesture) continue;
         const base = syntheticHand(gesture);
         const center = settingsRef.current.numHands === 2 ? (h === 0 ? 0.28 : 0.76) : 0.5;
         const scale = settingsRef.current.numHands === 2 ? 1.2 : 1.8;
-        const cl = classifyHand(base, settingsRef.current.threshold);
+        const cl = classifyHand(base, settingsRef.current.threshold, settingsRef.current.mode);
         poses.push(base.map(p => ({
           x: center + (p.x - 0.5) * scale * (9 / 16) * (h === 0 ? 1 : -1) + Math.sin(t * 1.3) * 0.01,
           y: 0.58 + (p.y - 0.64) * scale + Math.cos(t * 1.1) * 0.01,

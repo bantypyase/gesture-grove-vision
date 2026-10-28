@@ -14,3 +14,4 @@
 - All camera/MediaPipe lifecycle lives in `src/hooks/use-hand-tracker.ts`; MediaPipe is dynamically imported so SSR never loads it.
 - Counting values belong to gesture metadata, with distinct poses for three and four and shared existing poses for zero, one, two and five; this avoids competing labels for identical hand shapes.
 - Two-hand snapshots are ordered by handedness and debounced as a pair; sum counting metadata only when every visible hand has a counting pose to avoid partial totals.
+- Symbol and starter ASL modes select separate candidate sets from shared geometry; identical shapes get mode-specific labels rather than competing predictions, and ASL support is explicitly limited to static letters.
