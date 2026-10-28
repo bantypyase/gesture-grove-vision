@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { classifyHand, combinedFingerCount, GESTURES, SUPPORTED, syntheticHand, type KnownGesture } from "./gestures";
+import { ALPHABET, classifyHand, combinedFingerCount, GESTURES, SUPPORTED, syntheticHand, type KnownGesture } from "./gestures";
 
 describe("gesture classifier", () => {
+  for (const letter of ALPHABET) {
+    it(`recognizes ${letter} in alphabet mode on either hand`, () => {
+      const pose = syntheticHand(letter);
+      expect(classifyHand(pose, 0.65, "alphabet").gesture).toBe(letter);
+      expect(classifyHand(pose.map(p => ({ x: 1 - p.x, y: p.y })), 0.65, "alphabet").gesture).toBe(letter);
+    });
+  }
+  it("uses separate labels for identical symbol and alphabet shapes", () => {
+    expect(classifyHand(syntheticHand("peace"), 0.65, "symbols").gesture).toBe("peace");
+    expect(classifyHand(syntheticHand("peace"), 0.65, "alphabet").gesture).toBe("asl_v");
+  });
+  it("rejects unsupported shapes in alphabet mode and malformed input", () => {
+    expect(classifyHand(syntheticHand("love_you"), 0.65, "alphabet").gesture).toBe("unknown");
+    expect(classifyHand([], 0.65).gesture).toBe("unknown");
+  });
   it("combines two open palms into a count of ten", () => {
     expect(combinedFingerCount([{ gesture: "open_palm" }, { gesture: "open_palm" }])).toBe(10);
   });
@@ -16,6 +31,7 @@ describe("gesture classifier", () => {
   for (const g of SUPPORTED) {
     it(`recognizes ${g}`, () => {
       expect(classifyHand(syntheticHand(g), 0.65).gesture).toBe(g);
+      expect(classifyHand(syntheticHand(g).map(p => ({ x: 1 - p.x, y: p.y })), 0.65).gesture).toBe(g);
     });
   }
   it("returns unknown when the threshold cannot be met", () => {
