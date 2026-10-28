@@ -6,6 +6,7 @@ export type Point = { x: number; y: number; z?: number };
 export type Idx = 0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20;
 export type Hand = Record<Idx, Point>;
 export type KnownGesture = Exclude<GestureId, "unknown">;
+export type RecognitionMode = "symbols" | "alphabet";
 
 export type GestureId =
   | "open_palm"
@@ -16,6 +17,11 @@ export type GestureId =
   | "pointing_up"
   | "three"
   | "four"
+  | "rock_on"
+  | "love_you"
+  | "shaka"
+  | "l_shape"
+  | "asl_b" | "asl_f" | "asl_i" | "asl_l" | "asl_s" | "asl_v" | "asl_w" | "asl_y"
   | "unknown";
 
 export interface GestureInfo {
@@ -81,6 +87,18 @@ export const GESTURES: Record<GestureId, GestureInfo> = {
     description: "Four fingers extended, thumb folded.",
     tip: "Raise all four fingers and tuck your thumb across your palm.",
   },
+  rock_on: { id: "rock_on", name: "Rock On", description: "Index and little finger raised; thumb folded.", tip: "Curl the middle and ring fingers and tuck your thumb." },
+  love_you: { id: "love_you", name: "I Love You", description: "Thumb, index and little finger extended.", tip: "Keep the middle and ring fingers curled, palm facing the camera." },
+  shaka: { id: "shaka", name: "Shaka", description: "Thumb and little finger extended.", tip: "Fold the three middle fingers and spread thumb and little finger." },
+  l_shape: { id: "l_shape", name: "L Shape", description: "Index raised and thumb extended sideways.", tip: "Make an L with your thumb and index; curl the other fingers." },
+  asl_b: { id: "asl_b", name: "ASL · B", description: "Four fingers upright, thumb across palm.", tip: "Keep the four raised fingers together." },
+  asl_f: { id: "asl_f", name: "ASL · F", description: "Thumb and index touching; three fingers raised.", tip: "Make a circle with the thumb and index fingertips." },
+  asl_i: { id: "asl_i", name: "ASL · I", description: "Little finger raised, other fingers folded.", tip: "Keep your thumb tucked across the folded fingers." },
+  asl_l: { id: "asl_l", name: "ASL · L", description: "Index upright and thumb sideways.", tip: "Extend thumb and index into an L shape." },
+  asl_s: { id: "asl_s", name: "ASL · S", description: "Closed fist, thumb across the front.", tip: "Place your thumb over the curled fingers." },
+  asl_v: { id: "asl_v", name: "ASL · V", description: "Index and middle fingers raised and separated.", tip: "Spread the two raised fingers into a V." },
+  asl_w: { id: "asl_w", name: "ASL · W", description: "Index, middle and ring fingers raised.", tip: "Fold your thumb and little finger together." },
+  asl_y: { id: "asl_y", name: "ASL · Y", description: "Thumb and little finger extended.", tip: "Fold the three middle fingers." },
   unknown: {
     id: "unknown",
     name: "Unknown",
@@ -89,7 +107,11 @@ export const GESTURES: Record<GestureId, GestureInfo> = {
   },
 };
 
-export const SUPPORTED: KnownGesture[] = ["open_palm", "fist", "thumbs_up", "peace", "ok", "pointing_up", "three", "four"];
+export const SUPPORTED: KnownGesture[] = ["open_palm", "fist", "thumbs_up", "peace", "ok", "pointing_up", "three", "four", "rock_on", "love_you", "shaka", "l_shape"];
+export const ALPHABET: KnownGesture[] = ["asl_b", "asl_f", "asl_i", "asl_l", "asl_s", "asl_v", "asl_w", "asl_y"];
+export function supportedGestures(mode: RecognitionMode): KnownGesture[] {
+  return mode === "alphabet" ? ALPHABET : SUPPORTED;
+}
 
 /** Unknown or non-counting poses must not produce a misleading partial total. */
 export function combinedFingerCount(hands: { gesture: GestureId }[]): number | null {
@@ -122,7 +144,11 @@ export interface Classification {
 }
 
 /** threshold: minimum match strength for a gesture to be reported (0..1). */
-export function classifyHand(input: Point[], threshold = 0.65): Classification {
+export function classifyHand(input: Point[], threshold = 0.65, mode: RecognitionMode = "symbols"): Classification {
+  const emptyScores = Object.fromEntries([...SUPPORTED, ...ALPHABET].map(id => [id, 0])) as Classification["scores"];
+  if (input.length !== 21 || input.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) {
+    return { gesture: "unknown", score: 0, scores: emptyScores };
+  }
   const lm = input as unknown as Hand;
   const palm = d(lm[0], lm[9]) || 1e-6;
   const wrist = lm[0];
@@ -163,14 +189,28 @@ export function classifyHand(input: Point[], threshold = 0.65): Classification {
     thumbs_up: avg(index.curl, middle.curl, ring.curl, pinky.curl, thumbUp),
     peace: avg(index.ext, middle.ext, ring.curl, pinky.curl, 1 - pinch),
     ok: avg(pinch, middle.ext, ring.ext, pinky.ext),
-    pointing_up: avg(index.ext, indexUp, middle.curl, ring.curl, pinky.curl, 1 - thumbUp),
+    pointing_up: avg(index.ext, indexUp, middle.curl, ring.curl, pinky.curl, 1 - thumbUp, thumbCurl),
     three: avg(index.ext, middle.ext, ring.ext, pinky.curl, thumbCurl, 1 - pinch),
     four: avg(index.ext, middle.ext, ring.ext, pinky.ext, thumbCurl, 1 - pinch),
+    rock_on: avg(index.ext, middle.curl, ring.curl, pinky.ext, thumbCurl),
+    love_you: avg(index.ext, middle.curl, ring.curl, pinky.ext, thumbExt),
+    shaka: avg(index.curl, middle.curl, ring.curl, pinky.ext, thumbExt),
+    l_shape: avg(index.ext, indexUp, middle.curl, ring.curl, pinky.curl, thumbExt),
+    asl_b: 0, asl_f: 0, asl_i: avg(index.curl, middle.curl, ring.curl, pinky.ext, thumbCurl),
+    asl_l: 0, asl_s: 0, asl_v: 0, asl_w: 0, asl_y: 0,
   };
+  scores.asl_b = scores.four;
+  scores.asl_f = scores.ok;
+  scores.asl_l = scores.l_shape;
+  scores.asl_s = scores.fist;
+  scores.asl_v = scores.peace;
+  scores.asl_w = scores.three;
+  scores.asl_y = scores.shaka;
 
   let best: GestureId = "unknown";
   let bestScore = 0;
-  for (const [k, v] of Object.entries(scores) as [Exclude<GestureId, "unknown">, number][]) {
+  for (const k of supportedGestures(mode)) {
+    const v = scores[k];
     if (v > bestScore) {
       bestScore = v;
       best = k;
@@ -215,6 +255,19 @@ function thumbPts(p: ThumbPose): Point[] {
 }
 
 export function syntheticHand(g: Exclude<GestureId, "unknown">): Point[] {
+  const aliases: Partial<Record<KnownGesture, KnownGesture>> = { asl_b: "four", asl_f: "ok", asl_l: "l_shape", asl_s: "fist", asl_v: "peace", asl_w: "three", asl_y: "shaka" };
+  const alias = aliases[g];
+  if (alias) {
+    const points = syntheticHand(alias);
+    if (g === "asl_b") {
+      // B has upright fingers held together, unlike a spread counting four.
+      for (let i = 5; i < 21; i++) {
+        const p = points[i];
+        if (p) p.x = 0.5 + (p.x - 0.5) * 0.45;
+      }
+    }
+    return points;
+  }
   const cfg: Record<typeof g, { t: ThumbPose; f: [F, F, F, F] }> = {
     open_palm: { t: "side", f: ["ext", "ext", "ext", "ext"] },
     fist: { t: "tucked", f: ["curl", "curl", "curl", "curl"] },
@@ -224,6 +277,18 @@ export function syntheticHand(g: Exclude<GestureId, "unknown">): Point[] {
     pointing_up: { t: "tucked", f: ["ext", "curl", "curl", "curl"] },
     three: { t: "tucked", f: ["ext", "ext", "ext", "curl"] },
     four: { t: "tucked", f: ["ext", "ext", "ext", "ext"] },
+    rock_on: { t: "tucked", f: ["ext", "curl", "curl", "ext"] },
+    love_you: { t: "side", f: ["ext", "curl", "curl", "ext"] },
+    shaka: { t: "side", f: ["curl", "curl", "curl", "ext"] },
+    l_shape: { t: "side", f: ["ext", "curl", "curl", "curl"] },
+    asl_i: { t: "tucked", f: ["curl", "curl", "curl", "ext"] },
+    asl_b: { t: "tucked", f: ["ext", "ext", "ext", "ext"] },
+    asl_f: { t: "pinch", f: ["curl", "ext", "ext", "ext"] },
+    asl_l: { t: "side", f: ["ext", "curl", "curl", "curl"] },
+    asl_s: { t: "tucked", f: ["curl", "curl", "curl", "curl"] },
+    asl_v: { t: "tucked", f: ["ext", "ext", "curl", "curl"] },
+    asl_w: { t: "tucked", f: ["ext", "ext", "ext", "curl"] },
+    asl_y: { t: "side", f: ["curl", "curl", "curl", "ext"] },
   };
   const c = cfg[g];
   let index = fingerPts(BASE_X.index, c.f[0]);
