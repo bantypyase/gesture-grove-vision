@@ -111,7 +111,7 @@ export function Dashboard() {
               <SelectTrigger id="recognition-mode" className="w-[190px]" aria-label="Recognition mode"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="symbols">Symbols & counting</SelectItem>
-                <SelectItem value="alphabet">ASL letters</SelectItem>
+                <SelectItem value="alphabet">ASL handshapes</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -344,7 +344,8 @@ export function Dashboard() {
                 using simple geometry (which fingers are extended or curled). This is an MVP: results can be ambiguous
                 depending on hand orientation, lighting and distance — the OK sign is the least reliable. When no
                 gesture fits well, it reports "Unknown" instead of guessing.
-                ASL mode covers only B, F, I, L, S, V, W and Y using static hand shapes; it is not a full
+                ASL mode approximates only B, F, I, L, S, V, W and Y using static hand shapes; finger contact
+                and orientation may be ambiguous. It is not a full
                 sign-language translator. Motion letters J and Z, words and two-hand heart signs are not supported.
               </AlertDescription>
             </Alert>

@@ -31,6 +31,7 @@ describe("gesture classifier", () => {
   for (const g of SUPPORTED) {
     it(`recognizes ${g}`, () => {
       expect(classifyHand(syntheticHand(g), 0.65).gesture).toBe(g);
+      expect(classifyHand(syntheticHand(g).map(p => ({ x: 1 - p.x, y: p.y })), 0.65).gesture).toBe(g);
     });
   }
   it("returns unknown when the threshold cannot be met", () => {
